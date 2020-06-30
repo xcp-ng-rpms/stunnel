@@ -10,7 +10,7 @@
 Summary: A TLS-encrypting socket wrapper
 Name: stunnel
 Version: 5.56
-Release: 1%{?dist}.xs1
+Release: 1.xs1%{?dist}
 License: GPLv2
 Group: Applications/Internet
 URL: http://www.stunnel.org/
