@@ -1,3 +1,8 @@
+%global package_speccommit 666c76ba351892c66f3806d3d44723edee685e28
+%global usver 5.60
+%global xsver 4
+%global xsrel %{xsver}%{?xscount}%{?xshash}
+%global package_srccommit refs/tags/stunnel-5.60
 # Do not generate provides for private libraries
 %global __provides_exclude_from ^%{_libdir}/stunnel/.*$
 
@@ -9,28 +14,20 @@
 
 Summary: A TLS-encrypting socket wrapper
 Name: stunnel
-Version: 5.56
-Release: 1.xs1%{?dist}
+Version: 5.60
+Release: %{?xsrel}%{?dist}
 License: GPLv2
 Group: Applications/Internet
 URL: http://www.stunnel.org/
-
-Source0: https://code.citrite.net/rest/archive/latest/projects/XSU/repos/stunnel/archive?at=stunnel-5.56&format=tar.gz&prefix=stunnel-5.56#/stunnel-5.56.tar.gz
-Source1: https://repo.citrite.net:443/xs-local-contrib/stunnel/stunnel-5.56.tar.gz.asc
-Source2: SOURCES/stunnel/Certificate-Creation
-Source3: SOURCES/stunnel/sfinger.xinetd
-Source4: SOURCES/stunnel/stunnel-sfinger.conf
-Source5: SOURCES/stunnel/pop3-redirect.xinetd
-Source6: SOURCES/stunnel/stunnel-pop3s-client.conf
-Source7: SOURCES/stunnel/stunnel@.service
-
+Source0: stunnel-5.60.tar.gz
+Source1: Certificate-Creation
+Source2: sfinger.xinetd
+Source3: stunnel-sfinger.conf
+Source4: pop3-redirect.xinetd
+Source5: stunnel-pop3s-client.conf
+Source6: stunnel@.service
 Patch0: stunnel-5.55-systemd-service.patch
 Patch1: stunnel-5.55-coverity.patch
-
-Provides: gitsha(https://code.citrite.net/rest/archive/latest/projects/XSU/repos/stunnel/archive?at=stunnel-5.56&format=tar.gz&prefix=stunnel-5.56#/stunnel-5.56.tar.gz) = 0e158f6f007242e1ad0309d743390e8362d79d3f
-Provides: gitsha(https://code.citrite.net/rest/archive/latest/projects/XSU/repos/stunnel.centos/archive?at=imports%2Fc8%2Fstunnel-5.48-5.el8&format=tar.gz#/stunnel-5.48-5.el8.centos.tar.gz) = 2707933982998ed9c11a520c53101a2c9e7bff9b
-Provides: gitsha(https://code.citrite.net/rest/archive/latest/projects/XS/repos/stunnel.pg/archive?at=v1.0.0&format=tar.gz#/stunnel.pg.tar.gz) = 33ade8227a299359ebbeb5f9f1ca29c42edf3610
-
 # util-linux is needed for rename
 BuildRequires: gcc
 BuildRequires: pkgconfig, util-linux
@@ -45,6 +42,7 @@ BuildRequires: /usr/bin/pod2html
 BuildRequires: /usr/bin/nc, /usr/sbin/lsof, /usr/bin/ps
 BuildRequires: systemd
 BuildRequires: git
+%{?_cov_buildrequires}
 Obsoletes: stunnel_xs
 %{?systemd_requires}
 
@@ -56,6 +54,7 @@ conjunction with imapd to create a TLS secure IMAP server.
 
 %prep
 %autosetup -p1
+%{?_cov_prepare}
 
 # Fix the configure script output for FIPS mode and stack protector flag
 sed -i '/yes).*result: no/,+1{s/result: no/result: yes/;s/as_echo "no"/as_echo "yes"/};s/-fstack-protector/-fstack-protector-strong/' configure
@@ -67,8 +66,8 @@ sed -i '/client = yes/a \\  ciphers = PSK' tests/recipes/014_PSK_secrets
 #autoreconf -v
 CFLAGS="$RPM_OPT_FLAGS -fPIC"; export CFLAGS
 if pkg-config openssl ; then
-	CFLAGS="$CFLAGS `pkg-config --cflags openssl`";
-	LDFLAGS="`pkg-config --libs-only-L openssl`"; export LDFLAGS
+    CFLAGS="$CFLAGS `pkg-config --cflags openssl`";
+    LDFLAGS="`pkg-config --libs-only-L openssl`"; export LDFLAGS
 fi
 %configure --enable-fips --enable-ipv6 --with-ssl=%{_prefix} \
 %if %{with libwrap}
@@ -76,10 +75,10 @@ fi
 %else
 --disable-libwrap \
 %endif
-	CPPFLAGS="-UPIDFILE -DPIDFILE='\"%{_localstatedir}/run/stunnel.pid\"'"\
+    CPPFLAGS="-UPIDFILE -DPIDFILE='\"%{_localstatedir}/run/stunnel.pid\"'"\
   CFLAGS="$CFLAGS -DOPENSSL_NO_MD4 -DOPENSSL_NO_COMP -DOPENSSL_NO_PSK -g -O2"\
   LDFLAGS="$LDFLAGS -L/lib64/citrix -Wl,-rpath=/lib64/citrix"
-make V=1 LDADD="-pie -Wl,-z,defs,-z,relro,-z,now"
+%{?_cov_wrap} make V=1 LDADD="-pie -Wl,-z,defs,-z,relro,-z,now"
 
 %install
 make install DESTDIR=%{buildroot}
@@ -87,17 +86,18 @@ make install DESTDIR=%{buildroot}
 # language suffixes.
 #for lang in fr pl ; do
 for lang in pl ; do
-	mkdir -p %{buildroot}/%{_mandir}/${lang}/man8
-	mv %{buildroot}/%{_mandir}/man8/*.${lang}.8* %{buildroot}/%{_mandir}/${lang}/man8/
-	rename ".${lang}" "" %{buildroot}/%{_mandir}/${lang}/man8/*
+    mkdir -p %{buildroot}/%{_mandir}/${lang}/man8
+    mv %{buildroot}/%{_mandir}/man8/*.${lang}.8* %{buildroot}/%{_mandir}/${lang}/man8/
+    rename ".${lang}" "" %{buildroot}/%{_mandir}/${lang}/man8/*
 done
 mkdir srpm-docs
-cp %{SOURCE2} %{SOURCE3} %{SOURCE4} %{SOURCE5} %{SOURCE6} srpm-docs
+cp %{SOURCE1} %{SOURCE2} %{SOURCE3} %{SOURCE4} %{SOURCE5} srpm-docs
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 mkdir -p %{buildroot}%{_unitdir}
 cp %{buildroot}%{_datadir}/doc/stunnel/examples/%{name}.service %{buildroot}%{_unitdir}/%{name}.service
-cp %{SOURCE7} %{buildroot}%{_unitdir}/%{name}@.service
+cp %{SOURCE6} %{buildroot}%{_unitdir}/%{name}@.service
 %endif
+%{?_cov_install}
 
 %check
 # For unknown reason the 042_inetd test fails in Brew. The failure is not reproducible
@@ -134,6 +134,7 @@ make test || (for i in tests/logs/*.log ; do echo "$i": ; cat "$i" ; done; exit 
 %if 0%{?fedora} >= 15 || 0%{?rhel} >= 7
 %{_unitdir}/%{name}*.service
 %endif
+%{?_cov_results_package}
 
 %post
 /sbin/ldconfig
@@ -144,9 +145,30 @@ make test || (for i in tests/logs/*.log ; do echo "$i": ; cat "$i" ; done; exit 
 
 %postun
 /sbin/ldconfig
-%systemd_postun_with_restart %{name}.service
+%systemd_postun %{name}.service
 
 %changelog
+* Fri Oct 22 2021 Lin Liu <lin.liu@citrix.com> - 5.60-4
+- Enable static scan
+
+* Thu Oct 14 2021 Rob Hoes <rob.hoes@citrix.com> - 5.60-3
+- Do not restart stunnel after update
+
+* Tue Sep 28 2021 Ming Lu <ming.lu@citrix.com> - 5.60-2
+- Rebuild only
+
+* Tue Sep 14 2021 Rob Hoes <rob.hoes@citrix.com> - 5.60-1
+- New upstream release 5.60
+
+* Tue Jun 29 2021 Rob Hoes <rob.hoes@citrix.com> - 5.59-1
+- New upstream release 5.59
+
+* Mon Jun 21 2021 Christian Lindig <christian.lindig@citrix.com> - 5.56-3
+- Add ExecReload to stunnel@.service
+
+* Thu Jan 28 2021 Ming Lu <ming.lu@citrix.com> - 5.56-2
+- Move to Koji
+
 * Mon Jan  6 2020 Ming Lu <ming.lu@citrix.com> - 5.56-1
 - Update source to 5.56
 
@@ -338,7 +360,7 @@ make test || (for i in tests/logs/*.log ; do echo "$i": ; cat "$i" ; done; exit 
 - Sourced URL of sha256 hash file in spec file.
 
 * Tue Mar 26 2013 Avesh Agarwal <avagarwa@redhat.com> - 4.55-2
-- Resolves: 927841 
+- Resolves: 927841
 
 * Mon Mar 4 2013 Avesh Agarwal <avagarwa@redhat.com> - 4.55-1
 - New upstream realease 4.55

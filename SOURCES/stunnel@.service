@@ -4,6 +4,7 @@ After=syslog.target network.target
 
 [Service]
 ExecStart=/usr/bin/stunnel /etc/stunnel/%i.conf
+ExecReload=/bin/kill -HUP $MAINPID
 Type=forking
 PrivateTmp=true
 
