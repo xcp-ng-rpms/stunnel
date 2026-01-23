@@ -33,6 +33,7 @@ Patch3: stunnel-5.55-coverity.patch
 # util-linux is needed for rename
 BuildRequires: gcc
 BuildRequires: pkgconfig, util-linux
+BuildRequires: openssl
 BuildRequires: openssl-devel >= 1:3.0.0
 Requires: openssl-libs >= 1:3.0.0
 BuildRequires: autoconf automake libtool
@@ -150,6 +151,9 @@ make test || (for i in tests/logs/*.log ; do echo "$i": ; cat "$i" ; done; exit 
 %systemd_postun %{name}.service
 
 %changelog
+* Fri Jan 23 2026 Philippe Coval <philippe.coval@vates.tech> - 5.60-5.1
+- Add openssl to BuildRequires for tests
+
 * Mon Jan 06 2025 Deli Zhang <deli.zhang@cloud.com> - 5.60-5
 - CA-402641: Fix unexpected reading EOF
 - CP-50327: Support build with OpenSSL 3
