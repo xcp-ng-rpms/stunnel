@@ -1,0 +1,31 @@
+From 689968d14fab1ffd012f58d98a19497f97ddeb9f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Micha=C5=82=20Trojnara?= <Michal.Trojnara@stunnel.org>
+Date: Wed, 22 Dec 2021 21:44:52 +0100
+Subject: [PATCH] stunnel-5.61
+
+Referring to https://docs.openssl.org/3.0/man3/OSSL_CORE_MAKE_FUNC/,
+in OpenSSL 3 SSL_OP_BIT is reserved for internal use. They should not
+be used by applications or assumed to exist.
+So drop the option.
+
+---
+ src/options.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/src/options.c b/src/options.c
+index e21cb6e..442d3ea 100644
+--- a/src/options.c
++++ b/src/options.c
+@@ -225,9 +225,6 @@ static const SSL_OPTION ssl_opts[] = {
+ #ifdef SSL_OP_ALLOW_CLIENT_RENEGOTIATION
+     {"ALLOW_CLIENT_RENEGOTIATION", SSL_OP_ALLOW_CLIENT_RENEGOTIATION},
+ #endif
+-#ifdef SSL_OP_BIT
+-    {"BIT", SSL_OP_BIT},
+-#endif
+ #ifdef SSL_OP_CLEANSE_PLAINTEXT
+     {"CLEANSE_PLAINTEXT", SSL_OP_CLEANSE_PLAINTEXT},
+ #endif
+-- 
+2.43.0
+

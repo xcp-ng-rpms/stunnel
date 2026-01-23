@@ -1,6 +1,6 @@
-%global package_speccommit 666c76ba351892c66f3806d3d44723edee685e28
+%global package_speccommit d30b13a9620a4f531ed9efb827fbe086de167893
 %global usver 5.60
-%global xsver 4
+%global xsver 5
 %global xsrel %{xsver}%{?xscount}%{?xshash}
 %global package_srccommit refs/tags/stunnel-5.60
 # Do not generate provides for private libraries
@@ -26,12 +26,15 @@ Source3: stunnel-sfinger.conf
 Source4: pop3-redirect.xinetd
 Source5: stunnel-pop3s-client.conf
 Source6: stunnel@.service
-Patch0: stunnel-5.55-systemd-service.patch
-Patch1: stunnel-5.55-coverity.patch
+Patch0: stunnel-5.61-drop-SSL_OP_BIT-option.patch
+Patch1: stunnel-5.70-Fix-unexpected-reading-EOF.patch
+Patch2: stunnel-5.55-systemd-service.patch
+Patch3: stunnel-5.55-coverity.patch
 # util-linux is needed for rename
 BuildRequires: gcc
 BuildRequires: pkgconfig, util-linux
-BuildRequires: xs-openssl-devel >= 1.1.1
+BuildRequires: openssl-devel >= 1:3.0.0
+Requires: openssl-libs >= 1:3.0.0
 BuildRequires: autoconf automake libtool
 %if %{with libwrap}
 Buildrequires: tcp_wrappers-devel
@@ -76,8 +79,7 @@ fi
 --disable-libwrap \
 %endif
     CPPFLAGS="-UPIDFILE -DPIDFILE='\"%{_localstatedir}/run/stunnel.pid\"'"\
-  CFLAGS="$CFLAGS -DOPENSSL_NO_MD4 -DOPENSSL_NO_COMP -DOPENSSL_NO_PSK -g -O2"\
-  LDFLAGS="$LDFLAGS -L/lib64/citrix -Wl,-rpath=/lib64/citrix"
+  CFLAGS="$CFLAGS -DOPENSSL_NO_MD4 -DOPENSSL_NO_COMP -DOPENSSL_NO_PSK -g -O2"
 %{?_cov_wrap} make V=1 LDADD="-pie -Wl,-z,defs,-z,relro,-z,now"
 
 %install
@@ -148,6 +150,10 @@ make test || (for i in tests/logs/*.log ; do echo "$i": ; cat "$i" ; done; exit 
 %systemd_postun %{name}.service
 
 %changelog
+* Mon Jan 06 2025 Deli Zhang <deli.zhang@cloud.com> - 5.60-5
+- CA-402641: Fix unexpected reading EOF
+- CP-50327: Support build with OpenSSL 3
+
 * Fri Oct 22 2021 Lin Liu <lin.liu@citrix.com> - 5.60-4
 - Enable static scan
 
