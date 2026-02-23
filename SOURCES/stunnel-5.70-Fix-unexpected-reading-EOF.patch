@@ -1,0 +1,41 @@
+From a098973139b9e65916afe485181deaf7fac43f0c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Micha=C5=82=20Trojnara?= <Michal.Trojnara@stunnel.org>
+Date: Wed, 12 Jul 2023 22:59:09 +0200
+Subject: [PATCH] stunnel-5.70
+
+---
+ src/client.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/src/client.c b/src/client.c
+index 89ebb40..43ccd4a 100644
+--- a/src/client.c
++++ b/src/client.c
+@@ -1087,6 +1087,24 @@ NOEXPORT void transfer(CLI *c) {
+                     "SSL_read returned WANT_X509_LOOKUP: retrying");
+                 break;
+             case SSL_ERROR_SSL:
++#ifdef SSL_R_UNEXPECTED_EOF_WHILE_READING
++                /* OpenSSL 3.0 changed the method of reporting socket EOF */
++                if(ERR_GET_REASON(ERR_peek_error())==
++                        SSL_R_UNEXPECTED_EOF_WHILE_READING) {
++                    /* EOF -> buggy (e.g. Microsoft) peer:
++ *                     * TLS socket closed without close_notify alert */
++                    if(c->sock_ptr || write_wants_write) {
++                        s_log(LOG_ERR,
++                            "TLS socket closed (SSL_read) with %ld unsent byte(s)",
++                            (long)c->sock_ptr);
++                        throw_exception(c, 1); /* reset the sockets */
++                    }
++                    s_log(LOG_INFO, "TLS socket closed (SSL_read)");
++                    SSL_set_shutdown(c->ssl,
++                        SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
++                    break;
++                }
++#endif /* SSL_R_UNEXPECTED_EOF_WHILE_READING */
+                 sslerror("SSL_read");
+                 throw_exception(c, 1);
+             case SSL_ERROR_ZERO_RETURN: /* received a close_notify alert */
+-- 
+2.43.0
+
