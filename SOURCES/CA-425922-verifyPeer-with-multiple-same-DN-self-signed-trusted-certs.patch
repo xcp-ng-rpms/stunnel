@@ -1,0 +1,47 @@
+From bc3eea04709b30edec0d30f983416f97baa6ec78 Mon Sep 17 00:00:00 2001
+From: Ming Lu <ming.lu@cloud.com>
+Date: Fri, 10 Apr 2026 07:58:46 +0000
+Subject: [PATCH] CA-425922: verifyPeer with mult-same-DN self-signed trusted
+ certs
+
+When verifyPeer is yes and the trusted store contains multiple
+self-signed certificates with the same Distinguished Name (e.g., from a
+same peer regenerated over time), OpenSSL's build_chain() may fail
+during pre-verification with error X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT.
+
+This happens because OpenSSL looks up a trusted certificate by subject
+DN and finds one of the same-DN certificates, but it is not identical to
+the peer's current certificate. The OpenSSL doesn't try another one in
+the trusted store even though the actual peer certificate is in it.
+
+The cert_check() function already ignores several pre-verification errors
+at depth 0 to allow cert_check_local() to continue to perform matching
+on leaf certificate when verifyPeer = yes. But the error returned in
+this case is not ignored. Hence the whole checking failed.
+
+This to add X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT to the set of ignorable
+pre-verification errors to allow checking to continue with verifyPeer logic.
+
+Signed-off-by: Ming Lu <ming.lu@cloud.com>
+---
+ src/verify.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/verify.c b/src/verify.c
+index 105ad21..3b7f098 100644
+--- a/src/verify.c
++++ b/src/verify.c
+@@ -279,7 +279,9 @@ NOEXPORT int cert_check(CLI *c, X509_STORE_CTX *callback_ctx,
+         if(c->opt->option.verify_chain || (depth==0 &&
+                 err!=X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY &&
+                 err!=X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE &&
+-                err!=X509_V_ERR_CERT_UNTRUSTED)) {
++                err!=X509_V_ERR_CERT_UNTRUSTED &&
++                !(c->opt->option.verify_peer &&
++                   err==X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT))) {
+             s_log(LOG_WARNING, "CERT: Pre-verification error: %s",
+                 X509_verify_cert_error_string(err));
+             /* retain the STORE_CTX error produced by pre-verification */
+-- 
+2.52.0
+
