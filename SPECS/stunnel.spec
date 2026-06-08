@@ -1,10 +1,13 @@
-%global package_speccommit d30b13a9620a4f531ed9efb827fbe086de167893
+%global package_speccommit f32db8d460dfc2e96352b82ff3037a09581a0489
 %global usver 5.60
-%global xsver 5
+%global xsver 6
 %global xsrel %{xsver}%{?xscount}%{?xshash}
-%global package_srccommit refs/tags/stunnel-5.60
+%global package_srccommit stunnel-5.60
 # Do not generate provides for private libraries
 %global __provides_exclude_from ^%{_libdir}/stunnel/.*$
+
+# Disable tests due to certificates used in tests have expired
+%bcond_with tests
 
 %if 0%{?fedora} > 27 || 0%{?rhel} > 7
 %bcond_with libwrap
@@ -30,6 +33,7 @@ Patch0: stunnel-5.61-drop-SSL_OP_BIT-option.patch
 Patch1: stunnel-5.70-Fix-unexpected-reading-EOF.patch
 Patch2: stunnel-5.55-systemd-service.patch
 Patch3: stunnel-5.55-coverity.patch
+Patch4: CA-425922-verifyPeer-with-multiple-same-DN-self-signed-trusted-certs.patch
 # util-linux is needed for rename
 BuildRequires: gcc
 BuildRequires: pkgconfig, util-linux
@@ -42,7 +46,9 @@ Buildrequires: tcp_wrappers-devel
 BuildRequires: /usr/bin/pod2man
 BuildRequires: /usr/bin/pod2html
 # build test requirements
+%if %{with tests}
 BuildRequires: /usr/bin/nc, /usr/sbin/lsof, /usr/bin/ps
+%endif
 BuildRequires: systemd
 BuildRequires: git
 %{?_cov_buildrequires}
@@ -104,6 +110,7 @@ cp %{SOURCE6} %{buildroot}%{_unitdir}/%{name}@.service
 %check
 # For unknown reason the 042_inetd test fails in Brew. The failure is not reproducible
 # in Fedora or normal RHEL-8 install.
+%if %{with tests}
 rm tests/recipes/042_inetd
 # remove tests on PSK as stunnel in XenServer is built with -DOPENSSL_NO_PSK
 rm tests/recipes/014_PSK_secrets
@@ -115,6 +122,7 @@ export OPENSSL_SYSTEM_CIPHERS_OVERRIDE
 OPENSSL_CONF=
 export OPENSSL_CONF
 make test || (for i in tests/logs/*.log ; do echo "$i": ; cat "$i" ; done; exit 1)
+%endif
 
 %files
 %{!?_licensedir:%global license %%doc}
@@ -150,6 +158,10 @@ make test || (for i in tests/logs/*.log ; do echo "$i": ; cat "$i" ; done; exit 
 %systemd_postun %{name}.service
 
 %changelog
+* Wed Apr 15 2026 Ming Lu <ming.lu@cloud.com> - 5.60-6
+- CA-425922: verifyPeer failed when multi-same-DN self-signed certificates
+- Disable tests due to certificates used in tests have expired
+
 * Mon Jan 06 2025 Deli Zhang <deli.zhang@cloud.com> - 5.60-5
 - CA-402641: Fix unexpected reading EOF
 - CP-50327: Support build with OpenSSL 3
